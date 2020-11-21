@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Guofeng Yang</title>
+  
+  
+  <link href="http://example.com/atom.xml" rel="self"/>
+  
+  <link href="http://example.com/"/>
+  <updated>2020-11-21T08:50:45.581Z</updated>
+  <id>http://example.com/</id>
+  
+  <author>
+    <name>Guofeng Yang</name>
+    
+  </author>
+  
+  <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>myBlog</title>
+    <link href="http://example.com/2020/11/21/myBlog/"/>
+    <id>http://example.com/2020/11/21/myBlog/</id>
+    <published>2020-11-21T08:44:37.000Z</published>
+    <updated>2020-11-21T08:50:45.581Z</updated>
+    
+    <content type="html"><![CDATA[<h3 id="我的第一篇博客"><a href="#我的第一篇博客" class="headerlink" title="我的第一篇博客"></a>我的第一篇博客</h3><p>这是我的第一篇博客</p>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h3 id=&quot;我的第一篇博客&quot;&gt;&lt;a href=&quot;#我的第一篇博客&quot; class=&quot;headerlink&quot; title=&quot;我的第一篇博客&quot;&gt;&lt;/a&gt;我的第一篇博客&lt;/h3&gt;&lt;p&gt;这是我的第一篇博客&lt;/p&gt;
+</summary>
+      
+    
+    
+    
+    <category term="life" scheme="http://example.com/categories/life/"/>
+    
+    
+    <category term="life" scheme="http://example.com/tags/life/"/>
+    
+    <category term="fun" scheme="http://example.com/tags/fun/"/>
+    
+  </entry>
+  
+</feed>
