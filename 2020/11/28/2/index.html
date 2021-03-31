@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Pisces","version":"8.0.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false,"dimmer":false},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
+  </script>
+
+  <meta name="description" content="1. 降级读分布式存储系统出现的故障类型可分为永久性节点故障和临时性节点故障，其中，永久性节点故障是指该节点上的数据由于硬件毁坏等短时间内难以恢复，导致节点数据无法访问。如果节点只是因为掉电等导致数据短时间内不能访问，那么其实发生了临时性故障。此时，如果有用户I&#x2F;O请求的数据落在该故障节点上，系统需要从其它存活节点读取相关数据，通过解码操作来计算出需要的数据，这种降级读(degraded read">
+<meta property="og:type" content="article">
+<meta property="og:title" content="纠删码存储集群关键技术研究概况">
+<meta property="og:url" content="http://example.com/2020/11/28/2/index.html">
+<meta property="og:site_name" content="Guofeng Yang">
+<meta property="og:description" content="1. 降级读分布式存储系统出现的故障类型可分为永久性节点故障和临时性节点故障，其中，永久性节点故障是指该节点上的数据由于硬件毁坏等短时间内难以恢复，导致节点数据无法访问。如果节点只是因为掉电等导致数据短时间内不能访问，那么其实发生了临时性故障。此时，如果有用户I&#x2F;O请求的数据落在该故障节点上，系统需要从其它存活节点读取相关数据，通过解码操作来计算出需要的数据，这种降级读(degraded read">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-11-28T00:55:07.000Z">
+<meta property="article:modified_time" content="2020-11-28T04:25:15.018Z">
+<meta property="article:author" content="Guofeng Yang">
+<meta property="article:tag" content="erasure code">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://example.com/2020/11/28/2/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>纠删码存储集群关键技术研究概况 | Guofeng Yang</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="Guofeng Yang" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Guofeng Yang</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E9%99%8D%E7%BA%A7%E8%AF%BB"><span class="nav-text">1. 降级读</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%86%99%E6%9B%B4%E6%96%B0"><span class="nav-text">2. 写更新</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E8%8A%82%E7%82%B9%E9%87%8D%E6%9E%84"><span class="nav-text">3. 节点重构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#References"><span class="nav-text">References</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Guofeng Yang"
+      src="/images/ygf.png">
+  <p class="site-author-name" itemprop="name">Guofeng Yang</p>
+  <div class="site-description" itemprop="description">Guofeng Yang's personal page</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/fjygf" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;fjygf" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:2017sjtuyangguofeng@sjtu.edu.cn" title="E-Mail → mailto:2017sjtuyangguofeng@sjtu.edu.cn" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.linkedin.com/in/guofeng-yang-7543741a7/" title="LinkedIn → https:&#x2F;&#x2F;www.linkedin.com&#x2F;in&#x2F;guofeng-yang-7543741a7&#x2F;" rel="noopener" target="_blank"><i class="fab fa-linkedin-in fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://www.zhihu.com/people/dkstfeb1st" title="Zhihu → https:&#x2F;&#x2F;www.zhihu.com&#x2F;people&#x2F;dkstfeb1st" rel="noopener" target="_blank"><i class="fab fa-zhihu fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://weibo.com/fjygf" title="Weibo → https:&#x2F;&#x2F;weibo.com&#x2F;fjygf" rel="noopener" target="_blank"><i class="fab fa-weibo fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=2201415225&website=www.oicqzone.com" title="QQ → tencent:&#x2F;&#x2F;AddContact&#x2F;?fromId&#x3D;45&amp;fromSubId&#x3D;1&amp;subcmd&#x3D;all&amp;uin&#x3D;2201415225&amp;website&#x3D;www.oicqzone.com" rel="noopener" target="_blank"><i class="fab fa-qq fa-fw"></i></a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="https://music.163.com/#/user/home?id=1469964656" title="Wangyiyun → https:&#x2F;&#x2F;music.163.com&#x2F;#&#x2F;user&#x2F;home?id&#x3D;1469964656" rel="noopener" target="_blank"><i class="fa fa-music fa-fw"></i></a>
+      </span>
+  </div>
+
+
+  <div class="links-of-blogroll site-overview-item animated">
+    <div class="links-of-blogroll-title"><i class="fa fa-globe fa-fw"></i>
+      Links
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="http://en.sjtu.edu.cn/" title="http:&#x2F;&#x2F;en.sjtu.edu.cn&#x2F;" rel="noopener" target="_blank">SJTU</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.cs.sjtu.edu.cn/en/" title="http:&#x2F;&#x2F;www.cs.sjtu.edu.cn&#x2F;en&#x2F;" rel="noopener" target="_blank">SJTU-CSE</a>
+        </li>
+    </ul>
+  </div>
+
+        </section>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2020/11/28/2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ygf.png">
+      <meta itemprop="name" content="Guofeng Yang">
+      <meta itemprop="description" content="Guofeng Yang's personal page">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Guofeng Yang">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          纠删码存储集群关键技术研究概况
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2020-11-28 08:55:07 / Modified: 12:25:15" itemprop="dateCreated datePublished" datetime="2020-11-28T08:55:07+08:00">2020-11-28</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h3 id="1-降级读"><a href="#1-降级读" class="headerlink" title="1. 降级读"></a>1. 降级读</h3><p>分布式存储系统出现的故障类型可分为永久性节点故障和临时性节点故障，其中，永久性节点故障是指该节点上的数据由于硬件毁坏等短时间内难以恢复，导致节点数据无法访问。如果节点只是因为掉电等导致数据短时间内不能访问，那么其实发生了临时性故障。此时，如果有用户I/O请求的数据落在该故障节点上，系统需要从其它存活节点读取相关数据，通过解码操作来计算出需要的数据，这种降级读(<strong>degraded read</strong>)需要花费正常读操作几倍的时间，对存储系统的服务质量有很大的影响。有研究表明，数据中心的数据失效事件中临时性失效事件榨油很高的比例，即绝大多数数据失效事件都不会导致数据的永久性丢失<a href="#refer-anchor"><sup>1</sup></a>，所以，在分布式存储系统中，降级读操作比失效节点重构操作出现频率更高，其性能进行优化对提升存储系统性能的意义也更加重要。</p>
+<a id="more"></a>
+
+<p>对于最大可分距离(<strong>Maximum Distance Separate, MDS</strong>)编码，其能从 $k+r$ 个编码分块中的任意 $k$ 个恢复出原始数据分块，这意味着其降级读算法非常简单，就是读取同一条带上的任意 $k$ 个存活分块，然后通过解码算法计算出失效用户请求所需要的数据分块。现在很多研究工作集中在节点失效重构上，由于重构修复和降级读操作在原理上是相似的，所以一些重构优化工作可以被用来优化降级读操作，例如，Khan等人提出了一种算法可以最小化单节点失效情况下的重构操作和降级读操作需要读取的数据量<a href="#refer-anchor"><sup>2</sup></a>；能降低重构数据量的局部性编码LRC<a href="#refer-anchor"><sup>3</sup></a>和LRCs<a href="#refer-anchor"><sup>4</sup></a>分别用被于Microsoft Azure云存储和Facebook HDFS存储集群，既可以用于加速重构性能，又可以减少降级读操作读取的数据量。存储规模扩大会造成节点异构性，怎样优化异构纠删码存储下的降级读成为一个研究难点，一种思路是降低存活分块的传输开销，另一种思路是提高存活节点资源利用率以加速降级读，如FastDR方案考虑了实际存储系统中存储设备异构性特征，通过发挥I/O访问并发性来加速降级读<a href="#refer-anchor"><sup>5</sup></a>。</p>
+<h3 id="2-写更新"><a href="#2-写更新" class="headerlink" title="2. 写更新"></a>2. 写更新</h3><p>RAID存储系统用于数据读/写场景，为了保障同一条带上数据一致性，当某数据分块被更新时，需要同时更新同一条带上的所有校验分块。以5盘RAID-5的小写为例，当一个数据分块更新时，如果按读-改-写(<strong>Read-Modify-Write, RMW</strong>)更新方法，需要读两个分块(一个旧数据分块和一个旧校验分块)，写两个分块(一个新数据分块和一个新校验分块)，写两个分块(一个新数据分块和一个新校验分块)；如果按重构写(<strong>Reconstruction Write, RCW</strong>)更新方法，则需要读三个旧数据分块，写两个分块(一个新数据分块和一个新校验分块)。不管RMW还是RCW更新方式，写更新引起的I/O量是写请求数据量的几倍，此即写惩罚(<strong>write penalty</strong>)。针对小写惩罚，Parity Logging方案通过一个日志盘将随机小写转变为顺序大写<a href="#refer-anchor"><sup>6</sup></a>；而AFRAID方案将写数据分块立即写入相应磁盘，而采用延迟策略来处理校验磁盘的写操作<a href="#refer-anchor"><sup>7</sup></a>。</p>
+<p>对于纠删码存储集群下的写更新，目前也存在两种针对RMW更新的优化方法：Aguilera等提出<a href="#refer-anchor"><sup>8</sup></a>，如果数据分块 $D_i$ 被更新成 $D_i^{‘}$，则更新管理器只计算 $D_i^{‘}-D_i$ 并将其广播给集群下所有存储节点，校验节点 $PN_j$ 采用系数 ${\alpha}_{j,i}$ 完成运算 $P_j+{\alpha}_{j,i}*(D_i^{‘}-D_i)$；Hafner等为保证校验数据一致性提出了一种校验更新方法。数据节点完成旧数据分块和新数据分块的差分块，并由数据节点将差分块发送给第一个校验节点，第一个校验节点再将差分块转发给第二个校验节点，依次转发<a href="#refer-anchor"><sup>9</sup></a>。本质上讲，上述两种优化方法都通过RMW方式达到数据更新和校验更新的目的，其优化思路在于将更新过程分解成几个步骤，由不同节点完成不同更新步骤，达到”避免集中式计算校验分块”或”降低更新所引起网络数据量”效果。</p>
+<h3 id="3-节点重构"><a href="#3-节点重构" class="headerlink" title="3. 节点重构"></a>3. 节点重构</h3><p>分布式系统除了面临临时性节点失效，还会碰到永久性节点失效。当发生永久性节点失效时，纠删码存储系统需要进行数据重构过程以恢复失效数据，此即节点重构过程。根据重构过程中存储系统是否响应用户I/O请求分为在线重构和离线重构，前者是指系统进行数据重构的同时响应用户I/O请求，此时重构过程将会与用户I/O过程竞争磁盘、带宽和CPU等系统资源；后者是指系统在没有任何用户I/O干扰的情况下进行数据重构过程，此时重构过程能使用所有系统资源。在实际应用场景中，在线重构和离线重构方案都有广泛的应用。银行服务系统需要支持在线重构；而离线备份系统发生节点失效时，需要进行离线重构过程。</p>
+<p>重构性能对系统可靠性至关重要。纠删码存储集群发生节点失效的情况下，对于容错能力为 $r$ 的存储系统的平均数据丢失时间(<strong>Mean Time To Data Loss, MTTDL</strong>)与失效数据恢复时间的 $r$ 次方成反比<a href="#refer-anchor"><sup>10</sup></a>，即失效恢复时间越长，系统节点再次失效的概率就越大，系统的可靠性就越低。除了能够提升系统可靠性之外，加速重构还能提升降级读的性能，当发生临时性节点失效时，读数据分块将会变成降级读过程，失效的数据分块将会被重构过程恢复，此时重构优化方法能用来提高降级读性能，加速对用户访问请求的响应。</p>
+<p>目前针对加速重构失效节点数据的问题，学术界和工业界已经进行了广泛而深入的研究，目前主要存在以下思路：</p>
+<p>（1）降低用户I/O和重构I/O二者的干扰。在在线重构过程中，用户I/O请求过程与数据重构过程将竞争系统的磁盘、网络和CPU等资源，从而相互影响性能。为了加速重构过程，可以将对失效数据的读/写访问请求重定向到其它存活节点，从而尽量降低用户I/O请求过程对重构过程的干扰，具体可参考Workout重构方案<a href="#refer-anchor"><sup>11</sup></a>和RAM-RS重构方案<a href="#refer-anchor"><sup>12</sup></a>。</p>
+<p>（2）提高重构I/O的并行度。在重构过程中，替换节点进行数据重构过程，其它存活节点响应重构读请求和用户I/O请求，在此种重构模式中替换节点的网络带宽得到了充分利用，而其它存活节点的网络带宽利用率却很低。例如，Hydrastor为了加速重构过程，利用每个存活节点并行地进行数据重构，从而最大化I/O利用率<a href="#refer-anchor"><sup>13</sup></a>。</p>
+<p>（3）优化解码操作。当数据分块所在节点发生失效时，为了恢复数据分块，需要对存活分块进行解码运算。为了加速解码速度，可以结合纠删码特性来选择最短重构链，以降低解码开销，例如，文献<a href="#refer-anchor"><sup>14</sup></a>给出了一种能降低异或操作数的混合式重构法，以加速重构解码性能。</p>
+<p>（4）降低校验组大小。纠删码存储集群进行重构时，需要从存活节点读取存活分块进行解码，计算出失效分块。此时，存活分块读所引起的网络传输量是决定重构性能的最主要因素，如果校验组变小，那么能减少存活分块的读取。LRC和LRCs将 $k$ 个数据分块重新分成多个大小相等的分组，每个分组再生成一个局部校验分块，当任何一个数据分块失效时，优先使用局部校验分块进行数据恢复<a href="#refer-anchor"><sup>3</sup></a> <a href="#refer-anchor"><sup>4</sup></a>。</p>
+<p>（5）减少数据重构过程中数据的网络传输量。为了减少存活分块的读取，出现了多种技术，如RDOR利用RDP容双错编码特点来优化单失效重构，减少磁盘读<a href="#refer-anchor"><sup>15</sup></a>；MICRO利用存储Cache来减少重构I/O<a href="#refer-anchor"><sup>16</sup></a>；再生码(<strong>regenerating codes</strong>)以最小化重构I/O带宽为设计目标，这是一类专为优化修复性能而构建的纠删编码，如MSR/MBR<a href="#refer-anchor"><sup>17</sup></a>、MCR<a href="#refer-anchor"><sup>18</sup></a>、MBCR<a href="#refer-anchor"><sup>19</sup></a>等。</p>
+<div id="refer-anchor"></div>>
+
+<h3 id="References"><a href="#References" class="headerlink" title="References"></a>References</h3><p>[1] Availability in globally distributed storage systems[C] (OSDI 2010)</p>
+<p>[2] Rethinking erasure codes for cloud file systems: Minimizing I/O for recovery and degraded reads[C] (FAST 2012)</p>
+<p>[3] Erasure coding in windows azure storage[C] (ATC 2012)</p>
+<p>[4] Xoring elephants: Novel erasure codes for big data[C] (VLDB 2013)</p>
+<p>[5] Boosting degraded reads in heterogeneous erasure-coded storage systems[J] (ToC 2015)</p>
+<p>[6] Parity logging overcoming the small write problem in redundant disk arrays[C] (SIGGRAPH 1993)</p>
+<p>[7] AFRAID: A frequently redundant array of independent disks[C] (ATC 1996)</p>
+<p>[8] Using erasure codes efficiently for storage in a distributed system[C] (DSN 2005)</p>
+<p>[9] Read-modify-write protocol for maintaining parity coherency in a write-back distributed redundancy data storage systems[P] (U.S. Patent 2012)</p>
+<p>[10] Reliability for networked storage nodes[J] (TDSC 2011)</p>
+<p>[11] WorkOut: I/O workload outsourcing for boosting RAID reconstruction performance[C] (FAST 2009)</p>
+<p>[12] An efficient I/O-redirection-based reconstruction scheme for erasure-coded storage clusters[J] (ToC 2015)</p>
+<p>[13] Hydrastor: A scalable secondary storage[C] (FAST 2009)</p>
+<p>[14] Space efficient matrix methods for lost data reconstruction in erasure codes[R] (IBM Research 2007)</p>
+<p>[15] A hybrid approach to failed disk recovery using RAID-6 codes: Algorithms and performance evaluation[J] (ToS 2011)</p>
+<p>[16] MICRO: A multilevel caching-based reconstruction optimizations for mobile storage systems[J] (ToC 2008)</p>
+<p>[17] Network Coding for distributed storage systems[J] (TIT 2010)</p>
+<p>[18] Cooperatiive recovery of distributed storage systems from multiple losses with network coding[J] (JSAC 2010)</p>
+<p>[19] Repairing multiple failures with coordinated and adaptive renegerating codes[C] (NetCod 2011)</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/erasure-code/" rel="tag"># erasure code</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/11/21/myBlog/" rel="prev" title="myBlog">
+                  <i class="fa fa-chevron-left"></i> myBlog
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Guofeng Yang</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/pisces/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

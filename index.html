@@ -197,7 +197,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">1</span>
+          <span class="site-state-item-count">2</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
@@ -286,6 +286,79 @@
   
 
   <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2020/11/28/2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ygf.png">
+      <meta itemprop="name" content="Guofeng Yang">
+      <meta itemprop="description" content="Guofeng Yang's personal page">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Guofeng Yang">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2020/11/28/2/" class="post-title-link" itemprop="url">纠删码存储集群关键技术研究概况</a>
+        </h2>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+      
+
+      <time title="Created: 2020-11-28 08:55:07 / Modified: 12:25:15" itemprop="dateCreated datePublished" datetime="2020-11-28T08:55:07+08:00">2020-11-28</time>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+          <h3 id="1-降级读"><a href="#1-降级读" class="headerlink" title="1. 降级读"></a>1. 降级读</h3><p>分布式存储系统出现的故障类型可分为永久性节点故障和临时性节点故障，其中，永久性节点故障是指该节点上的数据由于硬件毁坏等短时间内难以恢复，导致节点数据无法访问。如果节点只是因为掉电等导致数据短时间内不能访问，那么其实发生了临时性故障。此时，如果有用户I/O请求的数据落在该故障节点上，系统需要从其它存活节点读取相关数据，通过解码操作来计算出需要的数据，这种降级读(<strong>degraded read</strong>)需要花费正常读操作几倍的时间，对存储系统的服务质量有很大的影响。有研究表明，数据中心的数据失效事件中临时性失效事件榨油很高的比例，即绝大多数数据失效事件都不会导致数据的永久性丢失<a href="#refer-anchor"><sup>1</sup></a>，所以，在分布式存储系统中，降级读操作比失效节点重构操作出现频率更高，其性能进行优化对提升存储系统性能的意义也更加重要。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2020/11/28/2/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+</div>
+
+
+
+
+    
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
     <link itemprop="mainEntityOfPage" href="http://example.com/2020/11/21/myBlog/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -310,10 +383,16 @@
         <i class="far fa-calendar"></i>
       </span>
       <span class="post-meta-item-text">Posted on</span>
-      
 
-      <time title="Created: 2020-11-21 16:44:37 / Modified: 16:50:45" itemprop="dateCreated datePublished" datetime="2020-11-21T16:44:37+08:00">2020-11-21</time>
+      <time title="Created: 2020-11-21 16:44:37" itemprop="dateCreated datePublished" datetime="2020-11-21T16:44:37+08:00">2020-11-21</time>
     </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">Edited on</span>
+        <time title="Modified: 2020-11-28 08:59:20" itemprop="dateModified" datetime="2020-11-28T08:59:20+08:00">2020-11-28</time>
+      </span>
     <span class="post-meta-item">
       <span class="post-meta-item-icon">
         <i class="far fa-folder"></i>
@@ -394,7 +473,7 @@
 <div class="copyright">
   
   &copy; 
-  <span itemprop="copyrightYear">2020</span>
+  <span itemprop="copyrightYear">2021</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
   </span>
